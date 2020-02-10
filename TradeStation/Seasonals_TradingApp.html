@@ -352,7 +352,7 @@
                         if (d.weekid == 1) {
                             first = d.close;
                         }
-                        d.percentage = (d.close - first) / first;
+                        d.percentage = ((d.close - first) / first) * 100;
 
                         newData.push(d);
                     });
@@ -372,7 +372,7 @@
                 individualArray.forEach(function (d) {
                     if (symbolRoot.substr((symbolRoot.length - 1), 1) == d.symbolroot) {
                         var dt = d.beginmonth + "/" + d.beginday + " to " + d.endmonth + "/" + d.endday;
-                        document.getElementById("divMsg").innerHTML = "Date Range: " + dt;
+                        document.getElementById("divMsg").innerHTML = "Date Range: " + dt + " Weekly bars";
                         return false;
                     }
                 });
@@ -386,7 +386,7 @@
                         if (d.weekid == 1) {
                             first = d.close;
                         }
-                        d.percentage = (d.close - first) / first;
+                        d.percentage = ((d.close - first) / first) * 100;
 
                         newData.push(d);
                     });
@@ -405,7 +405,7 @@
 
                 continuousArray.forEach(function (d) {
                     var dt = d.beginmonth + "/" + d.beginday + " to " + d.endmonth + "/" + d.endday;
-                    document.getElementById("divMsg").innerHTML = "Date Range: " + dt;
+                    document.getElementById("divMsg").innerHTML = "Date Range: " + dt + " Weekly bars";
                     return false;
                 });
             }
@@ -439,7 +439,7 @@
                         if (d.weekid == 1) {
                             first = d.close;
                         }
-                        d.percentage = (d.close - first) / first;
+                        d.percentage = ((d.close - first) / first) * 100;
 
                         newData.push(d);
                     });
@@ -458,7 +458,7 @@
                 spreadsArray.forEach(function (d) {
                     if (symbolRoot.substr((symbolRoot.length - 1), 1) == d.symbolroot1.substr((symbolRoot.length - 1), 1)) {
                         var dt = d.beginmonth + "/" + d.beginday + " to " + d.endmonth + "/" + d.endday;
-                        document.getElementById("divMsg").innerHTML = "Date Range: " + dt;
+                        document.getElementById("divMsg").innerHTML = "Date Range: " + dt + " Weekly bars";
                         return false;
                     }
                 });

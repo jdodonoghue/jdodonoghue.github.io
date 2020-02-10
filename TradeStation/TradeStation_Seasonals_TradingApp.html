@@ -1,1 +1,707 @@
-this is a test
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Seasonals</title>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .axis text {
+            font-family: 'Open Sans', sans-serif;
+            font-size: 12pt;
+        }
+
+        .axis .label {
+            font-size: 18pt;
+        }
+
+        path {
+            stroke: steelblue;
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: grey;
+            stroke-width: 1;
+            shape-rendering: crispEdges;
+        }
+
+        .legend {
+            font-size: 16px;
+            font-weight: bold;
+            text-anchor: middle;
+        }
+
+        .commodity {
+            width: 200px;
+            height: 20px;
+        }
+    </style>
+
+    <script>
+
+        var individualsymbols = '[{ "symbol": "CN", "longDesc": "Corn (July)" }, { "symbol": "CZ", "longDesc": "Corn (December)" }, \
+                { "symbol": "SN", "longDesc": "Soybeans (July)" }, { "symbol": "SX", "longDesc": "Soybeans (November)" }, \
+                { "symbol": "WN", "longDesc": "Wheat (July)" }, { "symbol": "WN", "longDesc": "Wheat (December)" }, \
+                { "symbol": "LCM", "longDesc": "Live Cattle (June)" }, { "symbol": "LCZ", "longDesc": "Live Cattle (December)" }, \
+                { "symbol": "LHM", "longDesc": "Live Hogs (June)" }, { "symbol": "LHZ", "longDesc": "Live Hogs (December)" }]';
+
+        var spreadsymbols = '[{ "symbol1": { "short":"CN", "longDesc": "Corn (July-December)" }, "symbol2": { "short": "CZ", "longDesc": "Corn (December)" } }, \
+                      { "symbol1": { "short": "SN", "longDesc": "Soybeans (July-November)" }, "symbol2": { "short": "SX", "longDesc": "Soybeans (November)" } }, \
+                      { "symbol1": { "short": "WN", "longDesc": "Wheat (July-December)" }, "symbol2": { "short": "WZ", "longDesc": "Wheat (December)" } }]';
+
+        var continuoussymbols = '[{ "symbol": "@CC", "longDesc": "Cocoa" }, \
+                { "symbol": "@KC", "longDesc": "Coffee" }, \
+                { "symbol": "@SB", "longDesc": "Sugar" } ]';
+
+
+        var individual = '[{ "symbolroot": "M", "beginmonth": "06", "beginday": "01", "endmonth": "05", "endday": "31"}, \
+                             { "symbolroot": "N", "beginmonth": "07", "beginday": "01", "endmonth": "06", "endday": "30"}, \
+                             { "symbolroot": "X", "beginmonth": "11", "beginday": "01", "endmonth": "10", "endday": "31"}, \
+                             { "symbolroot": "Z", "beginmonth": "12", "beginday": "01", "endmonth": "11", "endday": "30"} ]';
+
+        var spreads = '[{ "symbolroot1": "CN", "symbolroot2": "CZ", "beginmonth": "07", "beginday": "01", "endmonth": "06", "endday": "30" }, \
+                            { "symbolroot1": "SN", "symbolroot2": "SX", "beginmonth": "07", "beginday": "01", "endmonth": "06", "endday": "30" }, \
+                            { "symbolroot1": "WN", "symbolroot2": "WZ", "beginmonth": "07", "beginday": "01", "endmonth": "06", "endday": "30" }, \
+                            { "symbolroot1": "LCM", "symbolroot2": "LCZ", "beginmonth": "06", "beginday": "01", "endmonth": "05", "endday": "31" }, \
+                            { "symbolroot1": "LHM", "symbolroot2": "LHZ", "beginmonth": "06", "beginday": "01", "endmonth": "05", "endday": "31" } ]';
+
+        var continuous = '[{ "beginmonth": "01", "beginday": "01", "endmonth": "12", "endday": "31"} ]';
+        
+        function chooseType() {
+            d3.select("#divChart").select("svg").remove();
+            loadCommodities();
+            document.getElementById("selCommodity").selectedIndex = 0;
+        }
+
+        function chooseCommodity() {
+            var selType = document.getElementById("selType");
+            var selCommodity = document.getElementById("selCommodity");
+
+            d3.select("#divYears").html("");
+            d3.select("#divChart").select("svg").remove();
+
+            if (selType.value == "IndividualContracts") {
+                if (selCommodity.value != "0") {
+                    getYears(selType.value, selCommodity.value);
+                }
+            }
+
+            if (selType.value == "Spreads") {
+                getYears(selType.value, selCommodity.value);
+            }
+
+            if (selType.value == "ContinuousContracts") {
+                getYears(selType.value, selCommodity.value);
+            }
+        }
+
+        function chooseChartType() {
+            chartType = document.getElementById("selChartType").value;
+            if (chartType == "Percentage") {
+                yAxisLabelText = "Percent";
+            } else {
+                yAxisLabelText = "Close";
+            }
+            chooseCommodity();
+        }
+
+        function loadCommodities() {
+            var selType = document.getElementById("selType");
+            var selCommidity = document.getElementById("selCommodity");
+            deleteOptions(selCommidity);
+
+            if (selType.value == "IndividualContracts") {
+                var indsymArray = JSON.parse(individualsymbols);
+                addOption(selCommidity, "Select", "0");
+                indsymArray.forEach(function (d) {
+                    addOption(selCommidity, d.longDesc, d.symbol);
+                });
+            }
+            if (selType.value == "Spreads") {
+                var sprsymArray = JSON.parse(spreadsymbols);
+                addOption(selCommidity, "Select", "0");
+                sprsymArray.forEach(function (d) {
+                    addOption(selCommidity, d.symbol1.longDesc, d.symbol1.short);
+                });
+            }
+            if (selType.value == "ContinuousContracts") {
+                var contsymArray = JSON.parse(continuoussymbols);
+                addOption(selCommidity, "Select", "0");
+                contsymArray.forEach(function (d) {
+                    addOption(selCommidity, d.longDesc, d.symbol);
+                });
+            }
+        }
+
+        function getYears(selTypeValue, symbolRoot) {
+
+            var d = new Date();
+            var yearStart = d.getFullYear() - 5;
+
+            symbolList = [];
+            d3.select("#divYears").html("");
+
+            symbolList.push(selTypeValue);
+            var dataYears = buildYearList();
+            dataYears.forEach(function (d) {
+                var shortyear = d.substring(2, 4);
+                var longyear = d;
+
+                var newInput = document.createElement("input");
+                newInput.id = "chk" + shortyear;
+                newInput.name = "yearcheck";
+                newInput.type = "checkbox";
+                newInput.value = shortyear;
+                newInput.checked = true;
+
+                newInput.addEventListener("click", handleYearClick);
+
+                var newlabel = document.createElement("Label");
+                newlabel.setAttribute("for", newInput.id);
+                newlabel.innerHTML = longyear;
+
+                document.getElementById("divYears").appendChild(newInput);
+                document.getElementById("divYears").appendChild(newlabel);
+
+                if (longyear > yearStart) {
+                    newInput.checked = true;
+                }
+                else {
+                    newInput.checked = false;
+                }
+
+                symbolList.push(symbolRoot + d.shortyear);
+            });
+
+            buildSymbolList();
+        }
+
+        function buildYearList() {
+            var years = [];
+            var d = new Date();
+            var n = d.getFullYear();
+            var yearDisplay = 15;
+            for (var i = 0; i < yearDisplay; i++) {
+                var n = d.getFullYear() - i;
+                years.push(n.toString());
+            }
+
+            return years.reverse();
+        }
+
+        function buildSymbolList() {
+            d3.select("#divChart").select("svg").remove();
+            if (selType.value == "IndividualContracts") {
+                buildIndividualURL();
+            }
+
+            if (selType.value == "Spreads") {
+                buildSpreadsURL();
+            }
+
+            if (selType.value == "ContinuousContracts") {
+                buildContinuousContractsURL();
+            }
+        }
+
+        function handleYearClick(obj) {
+            buildSymbolList();
+        }
+
+        function GetBeginDate(root) {
+            var stdArray = JSON.parse(individual);
+            var output = "";
+            stdArray.forEach(function (d) {
+                if (root == d.symbolroot) {
+                    output = d.beginmonth + d.beginday;
+                    return false;
+                }
+            });
+            return output;
+        }
+
+        function GetEndDate(root) {
+            var stdArray = JSON.parse(individual);
+            var output = "";
+            stdArray.forEach(function (d) {
+                if (root == d.symbolroot) {
+                    output = d.endmonth + d.endday;
+                    return false;
+                }
+            });
+            return output;
+        }
+
+        function buildIndividualURL() {
+            var symbolRoot = document.getElementById("selCommodity").value;
+            var symbolList = [];
+            var month = symbolRoot.substr(symbolRoot.length - 1, 1);
+            var bd = GetBeginDate(month);
+            var ed = GetEndDate(month);
+
+            var interval = "Weekly";
+            symbolList.push(interval);
+
+            d3.select("#divYears").selectAll("input")
+                .each(function () {
+                    if (this.checked == true) {
+                        var year = this.value;
+                        var by = year - 1;
+                        var label = symbolRoot + year;
+                        symbolList.push(symbolRoot + year + "|" + label + "|" + "1" + by + bd + "|" + "1" + year + ed);
+                    }
+                });
+
+            var ext = symbolList.join(",");
+
+            getData(ext);
+        }
+
+        function buildSpreadsURL() {
+            var symbolRoot2 = "";
+            var symbolRoot = document.getElementById("selCommodity").value;
+            var sprArray = JSON.parse(spreads);
+            var symbolList = [];
+            var month = symbolRoot.substr(symbolRoot.length - 1, 1);
+
+            var bd = GetBeginDate(month);
+            var ed = GetEndDate(month);
+
+            sprArray.forEach(function (d) {
+                if (symbolRoot == d.symbolroot1) {
+                    symbolRoot2 = d.symbolroot2;
+                    month2 = d.symbolroot2.substr(symbolRoot2.length - 1, 1);
+                    return false;
+                }
+            });
+
+            var interval = "Weekly";
+            symbolList.push(interval);
+
+            d3.select("#divYears").selectAll("input")
+                .each(function () {
+                    if (this.checked == true) {
+                        var year = this.value;
+                        var by = year - 1;
+                        var label = symbolRoot + year + "-" + symbolRoot2 + year;
+                        symbolList.push(symbolRoot + year + "|" + label + "|" + "1" + by + bd + "|" + "1" + year + ed);
+                        symbolList.push(symbolRoot2 + year + "|" + label + "|" + "1" + by + bd + "|" + "1" + year + ed);
+                    }
+                });
+
+            var ext = symbolList.join(",");
+            getData(ext);
+        }
+
+        function buildContinuousContractsURL() {
+            var symbolRoot = document.getElementById("selCommodity").value;
+            var symbolList = [];
+
+            var bd = "0101";
+            var ed = "1231";
+
+            var interval = "Weekly";
+            symbolList.push(interval);
+
+            d3.select("#divYears").selectAll("input")
+                .each(function () {
+                    if (this.checked == true) {
+                        var year = this.value;
+                        var by = year;
+                        var label = symbolRoot + year;
+                        symbolList.push(symbolRoot + "|" + label + "|" + "1" + by + bd + "|" + "1" + year + ed);
+                    }
+                });
+
+            var ext = symbolList.join(",");
+
+            getData(ext);
+        }
+
+        function getData(ext) {
+            //var url = "http://localhost/TS/Seasonals.html#" + ext;
+            var url = "https://jdodonoghue.github.io/TradeStation/TradeStation_Seasonals_TradingApp.html#" + ext;
+            window.location.href = url;
+        }
+
+        var newData = [];
+        var yColumn = "";
+        var key = "";
+
+        function retriveData(args) {
+            var symbolRoot = document.getElementById("selCommodity").value;
+
+            var outData = [];
+            newData = [];
+
+            outData = JSON.parse(args);
+
+            if (selType.value == "IndividualContracts") {
+
+                if (selChartType.value == "Percentage") {
+                    var first = 0;
+                    outData.forEach(function (d, i) {
+                        if (d.weekid == 1) {
+                            first = d.close;
+                        }
+                        d.percentage = (d.close - first) / first;
+
+                        newData.push(d);
+                    });
+
+                    yColumn = "percentage";
+                    key = "label";
+                } else {
+                    newData = outData;
+                    yColumn = "close";
+                    key = "label";
+                }
+
+                render(newData, 600, 400, yColumn, key);
+
+                var individualArray = JSON.parse(individual);
+
+                individualArray.forEach(function (d) {
+                    if (symbolRoot.substr((symbolRoot.length - 1), 1) == d.symbolroot) {
+                        var dt = d.beginmonth + "/" + d.beginday + " to " + d.endmonth + "/" + d.endday;
+                        document.getElementById("divMsg").innerHTML = "Date Range: " + dt;
+                        return false;
+                    }
+                });
+            }
+
+            if (selType.value == "ContinuousContracts") {
+
+                if (selChartType.value == "Percentage") {
+                    var first = 0;
+                    outData.forEach(function (d, i) {
+                        if (d.weekid == 1) {
+                            first = d.close;
+                        }
+                        d.percentage = (d.close - first) / first;
+
+                        newData.push(d);
+                    });
+
+                    yColumn = "percentage";
+                    key = "label";
+                } else {
+                    newData = outData;
+                    yColumn = "close";
+                    key = "label";
+                }
+
+                render(newData, 600, 400, yColumn, key);
+
+                var continuousArray = JSON.parse(continuous);
+
+                continuousArray.forEach(function (d) {
+                    var dt = d.beginmonth + "/" + d.beginday + " to " + d.endmonth + "/" + d.endday;
+                    document.getElementById("divMsg").innerHTML = "Date Range: " + dt;
+                    return false;
+                });
+            }
+
+            if (selType.value == "Spreads") {
+
+                var newSpreadData = [];
+
+                var spreadByDate = d3.nest()
+                    .key(function (d) { return d.label; })
+                    .key(function (d) { return d.weekid; })
+                    .rollup(function (v) {
+                        return {
+                            weekid: v[0].weekid,
+                            month: v[0].month,
+                            symbol: v[0].label,
+                            close: v[0].close - v[1].close
+                        };
+                    })
+                    .entries(outData);
+
+                spreadByDate.forEach(function (d) {
+                    d.values.forEach(function (d) {
+                        newSpreadData.push(d.values);
+                    });
+                });
+
+                if (selChartType.value == "Percentage") {
+                    var first = 0;
+                    newSpreadData.forEach(function (d, i) {
+                        if (d.weekid == 1) {
+                            first = d.close;
+                        }
+                        d.percentage = (d.close - first) / first;
+
+                        newData.push(d);
+                    });
+
+                    yColumn = "percentage";
+                    key = "symbol";
+                } else {
+                    newData = newSpreadData;
+                    yColumn = "close";
+                    key = "symbol";
+                }
+                //document.getElementById("debug").value = newData;
+                render(newData, 600, 400, yColumn, key);
+
+                var spreadsArray = JSON.parse(spreads);
+                spreadsArray.forEach(function (d) {
+                    if (symbolRoot.substr((symbolRoot.length - 1), 1) == d.symbolroot1.substr((symbolRoot.length - 1), 1)) {
+                        var dt = d.beginmonth + "/" + d.beginday + " to " + d.endmonth + "/" + d.endday;
+                        document.getElementById("divMsg").innerHTML = "Date Range: " + dt;
+                        return false;
+                    }
+                });
+            }
+        }
+
+        function render(data, cw, ch, yColumn, key) {
+
+            if (data.length === 0) return;
+
+            var cw = document.documentElement.clientWidth;
+            var ch = document.documentElement.clientHeight;
+
+            //document.getElementById("debug").value = cw + " " + ch;
+
+            var outerWidth = cw - 200;
+            var outerHeight = ch - 200;
+
+            if (outerWidth < 600) {
+                outerWidth = 600;
+            }
+            if (outerHeight < 400) {
+                outerHeight = 400;
+            }
+
+            //document.getElementById("debug").value = outerWidth + " " + outerHeight;
+
+            d3.select("#divChart").select("svg").remove();
+
+            data.forEach(function (d) {
+                d.month = d.month;
+                d.weekid = +d.weekid;
+                d.close = +d.close;
+                d.percentage = +d.percentage;
+            });
+
+            // Set the dimensions of the canvas / graph
+            var margin = { left: 80, top: 5, right: 70, bottom: 130 };
+
+            var innerWidth = outerWidth - margin.left - margin.right;
+            var innerHeight = outerHeight - margin.top - margin.bottom;
+
+            var xAxisLabelText = "Month";
+            var xAxisLabelOffset = 50;
+
+            var x1AxisLabelText = "Week Id";
+            var x1AxisLabelOffset = 50;
+
+            var yAxisLabelOffset = 60;
+            yAxisLabelText = yColumn;
+
+            var xColumn = "month";
+            var x1Column = "weekid";
+
+            var colorColumn = "symbol";
+            var lineColumn = colorColumn;
+
+            var legendRectSize = 18;
+            var legendSpacing = 4;
+
+            // Set the ranges
+            var x = d3.scale.ordinal().rangeRoundBands([0, innerWidth], .5);
+            var x1 = d3.scale.linear().range([0, innerWidth]);
+            var y = d3.scale.linear().range([innerHeight, 0]);
+
+            // Define the axes
+            var xAxis = d3.svg.axis().scale(x)
+                .orient("bottom").ticks(20);
+
+            var xAxis1 = d3.svg.axis().scale(x1)
+                .orient("bottom").ticks(20);
+
+            var yAxis = d3.svg.axis().scale(y)
+                .orient("left").ticks(10);
+
+            var priceline = d3.svg.line()
+                .x(function (d) { return x1(d.weekid); })
+                .y(function (d) { return y(d[yColumn]); });
+
+            // Adds the svg canvas
+            var svg = d3.select("#divChart")
+                .append("svg")
+                .attr("class", "chart1")
+                .attr("width", outerWidth)
+                .attr("height", outerHeight)
+                .append("g")
+                .attr("transform",
+                    "translate(" + margin.left + "," + margin.top + ")");
+
+            var ymin = d3.min(data, function (d) { return d[yColumn]; });// - 50;
+            var ymax = d3.max(data, function (d) { return d[yColumn]; });// + 50;
+
+            x.domain(data.map(function (d) { return d.month; }));
+            x1.domain(d3.extent(data, function (d) { return d["weekid"]; }));
+
+            var yRangePercent = (ymax - ymin) * 0.05;
+            y.domain([ymin - yRangePercent, ymax + yRangePercent]);
+
+            // Add the X Axis
+            var xAxisG = svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + innerHeight + ")")
+                //.attr("transform", "translate(0, 0)")
+                .call(xAxis);
+
+            var xAxisLabel = svg.append("text")
+                .style("text-anchor", "middle")
+                .attr("transform", "translate(" + (innerWidth / 2) + "," + (innerHeight + xAxisLabelOffset) + ")")
+                .attr("class", "label")
+                .text(xAxisLabelText);
+
+            // Add the Y Axis
+            var yAxisG = svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis);
+
+            var yAxisLabel = svg.append("text")
+                .style("text-anchor", "middle")
+                .attr("transform", "translate(-" + yAxisLabelOffset + "," + (innerHeight / 2) + ") rotate(-90)")
+                .attr("class", "label")
+                .text(yAxisLabelText);
+
+            var dataNest = d3.nest()
+                .key(function (d) { return d[key]; })
+                .entries(data);
+
+            var colorScale = d3.scale.category10();
+
+            var legendSpace = innerWidth / dataNest.length; // spacing for legend
+
+            // Loop through each symbol / key
+            dataNest.forEach(function (d, i) {
+
+                svg.append("path")
+                    .attr("class", "line")
+                    .attr('stroke-width', 2)
+                    .attr("id", 'tag' + d.key.replace(/\s+/g, '')) // assign ID
+                    .style("stroke", function () {
+                        return d.color = colorScale(d.key);
+                    })
+                    .attr("d", priceline(d.values));
+
+                // Add the Legend
+                svg.append("text")
+                    .attr("x", (legendSpace / 2) + i * legendSpace)  // space legend
+                    .attr("y", innerHeight + (margin.bottom / 2) + 5)
+                    .attr("class", "legend")    // style the legend
+                    .style("cursor", "pointer")
+                    .style("fill", function () { // Add the colours dynamically
+                        return d.colorScale = colorScale(d.key);
+                    })
+                    .on("click", function () {
+                        // Determine if current line is visible
+                        var active = d.active ? false : true,
+                            newOpacity = active ? 0 : 1;
+                        // Hide or show the elements based on the ID
+                        d3.select("#tag" + d.key.replace(/\s+/g, ''))
+                            .transition().duration(100)
+                            .style("opacity", newOpacity);
+                        // Update whether or not the elements are active
+                        d.active = active;
+                    })
+                    .text(d.key);
+
+            });
+
+        }
+
+        function addOption(obj, text, value) {
+            var newOption = new Option(text, value);
+            var selLength = obj.length;
+            obj.options[selLength] = newOption;
+        }
+
+        function deleteOptions(obj) {
+            for (var i = obj.length - 1; i >= 0; i--) {
+                obj.remove(obj.length - 1);
+            }
+        }
+
+
+        function displayWindowSize() {
+
+            // Get width and height of the window excluding scrollbars
+            var w = document.documentElement.clientWidth;
+            var h = document.documentElement.clientHeight;
+
+            render(newData, w, h, yColumn, key);
+        }
+
+        // Attaching the event listener function to window's resize event
+        window.addEventListener("resize", displayWindowSize);
+
+        // Calling the function for the first time
+        displayWindowSize();
+
+    </script>
+
+</head>
+<body>
+    <div style="margin: 20px " class="container text-center">
+        <h3>Seasonals</h3>
+        <div id="Filter">
+            <select id="selType" onchange="chooseType();">
+                <option value="IndividualContracts">Individual Contracts</option>
+                <option value="Spreads">Spreads</option>
+                <option value="ContinuousContracts">Continuous Contracts</option>
+            </select>
+            <select id="selCommodity" class="commodity" onchange="chooseCommodity();"></select>
+            <select id="selChartType" style="display:inline;visibility:visible" onchange="chooseChartType();">
+                <option value="Standard">Standard Chart</option>
+                <option value="Percentage">Percentage Chart</option>
+            </select>
+            <br /><br />
+            <div id="divMsg"></div>
+            <br />
+            <div id="divYears"></div>
+            
+        </div>
+        <br />
+
+        <div id="divChart" style="width:600px">
+
+        </div>
+        <textarea id="debug" style="display:none" cols="50" rows="10"></textarea>
+        
+        <script>
+            
+            (function() {
+               loadCommodities();
+            })();
+
+            /*
+            // spread test data
+            //var argsSpreads = '[{ "weekid": 1, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jul", "date": "7/1/2016 2:20:00 PM", "close": "385.75" }, { "weekid": 2, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jul", "date": "7/8/2016 2:20:00 PM", "close": "380.5" }, { "weekid": 3, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jul", "date": "7/15/2016 2:20:00 PM", "close": "374.25" }, { "weekid": 4, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jul", "date": "7/22/2016 2:20:00 PM", "close": "362.5" }, { "weekid": 5, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jul", "date": "7/29/2016 2:20:00 PM", "close": "362.75" }, { "weekid": 6, "symbol": "CN17", "label": "CN17-CZ17", "month": "Aug", "date": "8/5/2016 2:20:00 PM", "close": "358.0" }, { "weekid": 7, "symbol": "CN17", "label": "CN17-CZ17", "month": "Aug", "date": "8/12/2016 2:20:00 PM", "close": "357.0" }, { "weekid": 8, "symbol": "CN17", "label": "CN17-CZ17", "month": "Aug", "date": "8/19/2016 2:20:00 PM", "close": "366.75" }, { "weekid": 9, "symbol": "CN17", "label": "CN17-CZ17", "month": "Aug", "date": "8/26/2016 2:20:00 PM", "close": "349.0" }, { "weekid": 10, "symbol": "CN17", "label": "CN17-CZ17", "month": "Sep", "date": "9/2/2016 2:20:00 PM", "close": "352.5" }, { "weekid": 11, "symbol": "CN17", "label": "CN17-CZ17", "month": "Sep", "date": "9/9/2016 2:20:00 PM", "close": "365.25" }, { "weekid": 12, "symbol": "CN17", "label": "CN17-CZ17", "month": "Sep", "date": "9/16/2016 2:20:00 PM", "close": "361.0" }, { "weekid": 13, "symbol": "CN17", "label": "CN17-CZ17", "month": "Sep", "date": "9/23/2016 2:20:00 PM", "close": "359.5" }, { "weekid": 14, "symbol": "CN17", "label": "CN17-CZ17", "month": "Sep", "date": "9/30/2016 2:20:00 PM", "close": "360.25" }, { "weekid": 15, "symbol": "CN17", "label": "CN17-CZ17", "month": "Oct", "date": "10/7/2016 2:20:00 PM", "close": "363.25" }, { "weekid": 16, "symbol": "CN17", "label": "CN17-CZ17", "month": "Oct", "date": "10/14/2016 2:20:00 PM", "close": "376.5" }, { "weekid": 17, "symbol": "CN17", "label": "CN17-CZ17", "month": "Oct", "date": "10/21/2016 2:20:00 PM", "close": "375.0" }, { "weekid": 18, "symbol": "CN17", "label": "CN17-CZ17", "month": "Oct", "date": "10/28/2016 2:20:00 PM", "close": "376.75" }, { "weekid": 19, "symbol": "CN17", "label": "CN17-CZ17", "month": "Nov", "date": "11/4/2016 2:20:00 PM", "close": "372.5" }, { "weekid": 20, "symbol": "CN17", "label": "CN17-CZ17", "month": "Nov", "date": "11/11/2016 2:20:00 PM", "close": "364.0" }, { "weekid": 21, "symbol": "CN17", "label": "CN17-CZ17", "month": "Nov", "date": "11/18/2016 2:20:00 PM", "close": "367.25" }, { "weekid": 22, "symbol": "CN17", "label": "CN17-CZ17", "month": "Nov", "date": "11/25/2016 2:20:00 PM", "close": "373.0" }, { "weekid": 23, "symbol": "CN17", "label": "CN17-CZ17", "month": "Dec", "date": "12/2/2016 2:20:00 PM", "close": "361.75" }, { "weekid": 24, "symbol": "CN17", "label": "CN17-CZ17", "month": "Dec", "date": "12/9/2016 2:20:00 PM", "close": "373.5" }, { "weekid": 25, "symbol": "CN17", "label": "CN17-CZ17", "month": "Dec", "date": "12/16/2016 2:20:00 PM", "close": "370.5" }, { "weekid": 26, "symbol": "CN17", "label": "CN17-CZ17", "month": "Dec", "date": "12/23/2016 2:20:00 PM", "close": "360.0" }, { "weekid": 27, "symbol": "CN17", "label": "CN17-CZ17", "month": "Dec", "date": "12/30/2016 2:20:00 PM", "close": "364.25" }, { "weekid": 28, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jan", "date": "1/6/2017 2:20:00 PM", "close": "371.5" }, { "weekid": 29, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jan", "date": "1/13/2017 2:20:00 PM", "close": "372.5" }, { "weekid": 30, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jan", "date": "1/20/2017 2:20:00 PM", "close": "383.0" }, { "weekid": 31, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jan", "date": "1/27/2017 2:20:00 PM", "close": "376.5" }, { "weekid": 32, "symbol": "CN17", "label": "CN17-CZ17", "month": "Feb", "date": "2/3/2017 2:20:00 PM", "close": "379.75" }, { "weekid": 33, "symbol": "CN17", "label": "CN17-CZ17", "month": "Feb", "date": "2/10/2017 2:20:00 PM", "close": "388.75" }, { "weekid": 34, "symbol": "CN17", "label": "CN17-CZ17", "month": "Feb", "date": "2/17/2017 2:20:00 PM", "close": "382.5" }, { "weekid": 35, "symbol": "CN17", "label": "CN17-CZ17", "month": "Feb", "date": "2/24/2017 2:20:00 PM", "close": "378.25" }, { "weekid": 36, "symbol": "CN17", "label": "CN17-CZ17", "month": "Mar", "date": "3/3/2017 2:20:00 PM", "close": "387.25" }, { "weekid": 37, "symbol": "CN17", "label": "CN17-CZ17", "month": "Mar", "date": "3/10/2017 2:20:00 PM", "close": "372.0" }, { "weekid": 38, "symbol": "CN17", "label": "CN17-CZ17", "month": "Mar", "date": "3/17/2017 2:20:00 PM", "close": "375.0" }, { "weekid": 39, "symbol": "CN17", "label": "CN17-CZ17", "month": "Mar", "date": "3/24/2017 2:20:00 PM", "close": "363.75" }, { "weekid": 40, "symbol": "CN17", "label": "CN17-CZ17", "month": "Mar", "date": "3/31/2017 2:20:00 PM", "close": "371.75" }, { "weekid": 41, "symbol": "CN17", "label": "CN17-CZ17", "month": "Apr", "date": "4/7/2017 2:20:00 PM", "close": "367.25" }, { "weekid": 42, "symbol": "CN17", "label": "CN17-CZ17", "month": "Apr", "date": "4/14/2017 2:20:00 PM", "close": "378.0" }, { "weekid": 43, "symbol": "CN17", "label": "CN17-CZ17", "month": "Apr", "date": "4/21/2017 2:20:00 PM", "close": "363.75" }, { "weekid": 44, "symbol": "CN17", "label": "CN17-CZ17", "month": "Apr", "date": "4/28/2017 2:20:00 PM", "close": "366.5" }, { "weekid": 45, "symbol": "CN17", "label": "CN17-CZ17", "month": "May", "date": "5/5/2017 2:20:00 PM", "close": "370.75" }, { "weekid": 46, "symbol": "CN17", "label": "CN17-CZ17", "month": "May", "date": "5/12/2017 2:20:00 PM", "close": "371.0" }, { "weekid": 47, "symbol": "CN17", "label": "CN17-CZ17", "month": "May", "date": "5/19/2017 2:20:00 PM", "close": "372.5" }, { "weekid": 48, "symbol": "CN17", "label": "CN17-CZ17", "month": "May", "date": "5/26/2017 2:20:00 PM", "close": "374.25" }, { "weekid": 49, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jun", "date": "6/2/2017 2:20:00 PM", "close": "372.75" }, { "weekid": 50, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jun", "date": "6/9/2017 2:20:00 PM", "close": "387.75" }, { "weekid": 51, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jun", "date": "6/16/2017 2:20:00 PM", "close": "384.0" }, { "weekid": 52, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jun", "date": "6/23/2017 2:20:00 PM", "close": "357.75" }, { "weekid": 53, "symbol": "CN17", "label": "CN17-CZ17", "month": "Jun", "date": "6/30/2017 2:20:00 PM", "close": "370.5" }, { "weekid": 1, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jul", "date": "7/1/2016 2:20:00 PM", "close": "388.0" }, { "weekid": 2, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jul", "date": "7/8/2016 2:20:00 PM", "close": "385.5" }, { "weekid": 3, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jul", "date": "7/15/2016 2:20:00 PM", "close": "381.25" }, { "weekid": 4, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jul", "date": "7/22/2016 2:20:00 PM", "close": "373.0" }, { "weekid": 5, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jul", "date": "7/29/2016 2:20:00 PM", "close": "372.5" }, { "weekid": 6, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Aug", "date": "8/5/2016 2:20:00 PM", "close": "372.25" }, { "weekid": 7, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Aug", "date": "8/12/2016 2:20:00 PM", "close": "373.75" }, { "weekid": 8, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Aug", "date": "8/19/2016 2:20:00 PM", "close": "382.5" }, { "weekid": 9, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Aug", "date": "8/26/2016 2:20:00 PM", "close": "366.75" }, { "weekid": 10, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Sep", "date": "9/2/2016 2:20:00 PM", "close": "369.75" }, { "weekid": 11, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Sep", "date": "9/9/2016 2:20:00 PM", "close": "381.25" }, { "weekid": 12, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Sep", "date": "9/16/2016 2:20:00 PM", "close": "376.75" }, { "weekid": 13, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Sep", "date": "9/23/2016 2:20:00 PM", "close": "375.75" }, { "weekid": 14, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Sep", "date": "9/30/2016 2:20:00 PM", "close": "376.5" }, { "weekid": 15, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Oct", "date": "10/7/2016 2:20:00 PM", "close": "379.5" }, { "weekid": 16, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Oct", "date": "10/14/2016 2:20:00 PM", "close": "391.0" }, { "weekid": 17, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Oct", "date": "10/21/2016 2:20:00 PM", "close": "389.0" }, { "weekid": 18, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Oct", "date": "10/28/2016 2:20:00 PM", "close": "390.25" }, { "weekid": 19, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Nov", "date": "11/4/2016 2:20:00 PM", "close": "387.0" }, { "weekid": 20, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Nov", "date": "11/11/2016 2:20:00 PM", "close": "379.5" }, { "weekid": 21, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Nov", "date": "11/18/2016 2:20:00 PM", "close": "382.0" }, { "weekid": 22, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Nov", "date": "11/25/2016 2:20:00 PM", "close": "387.5" }, { "weekid": 23, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Dec", "date": "12/2/2016 2:20:00 PM", "close": "377.75" }, { "weekid": 24, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Dec", "date": "12/9/2016 2:20:00 PM", "close": "388.5" }, { "weekid": 25, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Dec", "date": "12/16/2016 2:20:00 PM", "close": "386.5" }, { "weekid": 26, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Dec", "date": "12/23/2016 2:20:00 PM", "close": "376.25" }, { "weekid": 27, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Dec", "date": "12/30/2016 2:20:00 PM", "close": "380.0" }, { "weekid": 28, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jan", "date": "1/6/2017 2:20:00 PM", "close": "385.5" }, { "weekid": 29, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jan", "date": "1/13/2017 2:20:00 PM", "close": "386.25" }, { "weekid": 30, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jan", "date": "1/20/2017 2:20:00 PM", "close": "395.75" }, { "weekid": 31, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jan", "date": "1/27/2017 2:20:00 PM", "close": "389.25" }, { "weekid": 32, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Feb", "date": "2/3/2017 2:20:00 PM", "close": "392.75" }, { "weekid": 33, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Feb", "date": "2/10/2017 2:20:00 PM", "close": "399.25" }, { "weekid": 34, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Feb", "date": "2/17/2017 2:20:00 PM", "close": "394.25" }, { "weekid": 35, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Feb", "date": "2/24/2017 2:20:00 PM", "close": "391.0" }, { "weekid": 36, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Mar", "date": "3/3/2017 2:20:00 PM", "close": "399.25" }, { "weekid": 37, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Mar", "date": "3/10/2017 2:20:00 PM", "close": "386.5" }, { "weekid": 38, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Mar", "date": "3/17/2017 2:20:00 PM", "close": "389.75" }, { "weekid": 39, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Mar", "date": "3/24/2017 2:20:00 PM", "close": "379.5" }, { "weekid": 40, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Mar", "date": "3/31/2017 2:20:00 PM", "close": "388.25" }, { "weekid": 41, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Apr", "date": "4/7/2017 2:20:00 PM", "close": "384.5" }, { "weekid": 42, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Apr", "date": "4/14/2017 2:20:00 PM", "close": "394.5" }, { "weekid": 43, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Apr", "date": "4/21/2017 2:20:00 PM", "close": "382.0" }, { "weekid": 44, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Apr", "date": "4/28/2017 2:20:00 PM", "close": "385.0" }, { "weekid": 45, "symbol": "CZ17", "label": "CN17-CZ17", "month": "May", "date": "5/5/2017 2:20:00 PM", "close": "388.5" }, { "weekid": 46, "symbol": "CZ17", "label": "CN17-CZ17", "month": "May", "date": "5/12/2017 2:20:00 PM", "close": "388.75" }, { "weekid": 47, "symbol": "CZ17", "label": "CN17-CZ17", "month": "May", "date": "5/19/2017 2:20:00 PM", "close": "390.25" }, { "weekid": 48, "symbol": "CZ17", "label": "CN17-CZ17", "month": "May", "date": "5/26/2017 2:20:00 PM", "close": "392.5" }, { "weekid": 49, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jun", "date": "6/2/2017 2:20:00 PM", "close": "391.0" }, { "weekid": 50, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jun", "date": "6/9/2017 2:20:00 PM", "close": "406.0" }, { "weekid": 51, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jun", "date": "6/16/2017 2:20:00 PM", "close": "402.0" }, { "weekid": 52, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jun", "date": "6/23/2017 2:20:00 PM", "close": "375.25" }, { "weekid": 53, "symbol": "CZ17", "label": "CN17-CZ17", "month": "Jun", "date": "6/30/2017 2:20:00 PM", "close": "392.0" }, { "weekid": 1, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jun", "date": "6/30/2017 2:20:00 PM", "close": "412.5" }, { "weekid": 2, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jul", "date": "7/7/2017 2:20:00 PM", "close": "422.75" }, { "weekid": 3, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jul", "date": "7/14/2017 2:20:00 PM", "close": "409.75" }, { "weekid": 4, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jul", "date": "7/21/2017 2:20:00 PM", "close": "414.25" }, { "weekid": 5, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jul", "date": "7/28/2017 2:20:00 PM", "close": "410.0" }, { "weekid": 6, "symbol": "CN18", "label": "CN18-CZ18", "month": "Aug", "date": "8/4/2017 2:20:00 PM", "close": "403.5" }, { "weekid": 7, "symbol": "CN18", "label": "CN18-CZ18", "month": "Aug", "date": "8/11/2017 2:20:00 PM", "close": "398.5" }, { "weekid": 8, "symbol": "CN18", "label": "CN18-CZ18", "month": "Aug", "date": "8/18/2017 2:20:00 PM", "close": "390.0" }, { "weekid": 9, "symbol": "CN18", "label": "CN18-CZ18", "month": "Aug", "date": "8/25/2017 2:20:00 PM", "close": "380.0" }, { "weekid": 10, "symbol": "CN18", "label": "CN18-CZ18", "month": "Sep", "date": "9/1/2017 2:20:00 PM", "close": "381.75" }, { "weekid": 11, "symbol": "CN18", "label": "CN18-CZ18", "month": "Sep", "date": "9/8/2017 2:20:00 PM", "close": "383.25" }, { "weekid": 12, "symbol": "CN18", "label": "CN18-CZ18", "month": "Sep", "date": "9/15/2017 2:20:00 PM", "close": "382.25" }, { "weekid": 13, "symbol": "CN18", "label": "CN18-CZ18", "month": "Sep", "date": "9/22/2017 2:20:00 PM", "close": "381.5" }, { "weekid": 14, "symbol": "CN18", "label": "CN18-CZ18", "month": "Sep", "date": "9/29/2017 2:20:00 PM", "close": "383.75" }, { "weekid": 15, "symbol": "CN18", "label": "CN18-CZ18", "month": "Oct", "date": "10/6/2017 2:20:00 PM", "close": "379.75" }, { "weekid": 16, "symbol": "CN18", "label": "CN18-CZ18", "month": "Oct", "date": "10/13/2017 2:20:00 PM", "close": "382.5" }, { "weekid": 17, "symbol": "CN18", "label": "CN18-CZ18", "month": "Oct", "date": "10/20/2017 2:20:00 PM", "close": "374.75" }, { "weekid": 18, "symbol": "CN18", "label": "CN18-CZ18", "month": "Oct", "date": "10/27/2017 2:20:00 PM", "close": "378.75" }, { "weekid": 19, "symbol": "CN18", "label": "CN18-CZ18", "month": "Nov", "date": "11/3/2017 2:20:00 PM", "close": "378.25" }, { "weekid": 20, "symbol": "CN18", "label": "CN18-CZ18", "month": "Nov", "date": "11/10/2017 2:20:00 PM", "close": "373.0" }, { "weekid": 21, "symbol": "CN18", "label": "CN18-CZ18", "month": "Nov", "date": "11/17/2017 2:20:00 PM", "close": "371.25" }, { "weekid": 22, "symbol": "CN18", "label": "CN18-CZ18", "month": "Nov", "date": "11/24/2017 2:20:00 PM", "close": "371.25" }, { "weekid": 23, "symbol": "CN18", "label": "CN18-CZ18", "month": "Dec", "date": "12/1/2017 2:20:00 PM", "close": "374.5" }, { "weekid": 24, "symbol": "CN18", "label": "CN18-CZ18", "month": "Dec", "date": "12/8/2017 2:20:00 PM", "close": "369.25" }, { "weekid": 25, "symbol": "CN18", "label": "CN18-CZ18", "month": "Dec", "date": "12/15/2017 2:20:00 PM", "close": "364.25" }, { "weekid": 26, "symbol": "CN18", "label": "CN18-CZ18", "month": "Dec", "date": "12/22/2017 2:20:00 PM", "close": "368.75" }, { "weekid": 27, "symbol": "CN18", "label": "CN18-CZ18", "month": "Dec", "date": "12/29/2017 2:20:00 PM", "close": "367.25" }, { "weekid": 28, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jan", "date": "1/5/2018 2:20:00 PM", "close": "367.5" }, { "weekid": 29, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jan", "date": "1/12/2018 2:20:00 PM", "close": "362.75" }, { "weekid": 30, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jan", "date": "1/19/2018 2:20:00 PM", "close": "369.0" }, { "weekid": 31, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jan", "date": "1/26/2018 2:20:00 PM", "close": "373.25" }, { "weekid": 32, "symbol": "CN18", "label": "CN18-CZ18", "month": "Feb", "date": "2/2/2018 2:20:00 PM", "close": "377.25" }, { "weekid": 33, "symbol": "CN18", "label": "CN18-CZ18", "month": "Feb", "date": "2/9/2018 2:20:00 PM", "close": "377.5" }, { "weekid": 34, "symbol": "CN18", "label": "CN18-CZ18", "month": "Feb", "date": "2/16/2018 2:20:00 PM", "close": "382.75" }, { "weekid": 35, "symbol": "CN18", "label": "CN18-CZ18", "month": "Feb", "date": "2/23/2018 2:20:00 PM", "close": "382.25" }, { "weekid": 36, "symbol": "CN18", "label": "CN18-CZ18", "month": "Mar", "date": "3/2/2018 2:20:00 PM", "close": "392.5" }, { "weekid": 37, "symbol": "CN18", "label": "CN18-CZ18", "month": "Mar", "date": "3/9/2018 2:20:00 PM", "close": "398.0" }, { "weekid": 38, "symbol": "CN18", "label": "CN18-CZ18", "month": "Mar", "date": "3/16/2018 2:20:00 PM", "close": "391.0" }, { "weekid": 39, "symbol": "CN18", "label": "CN18-CZ18", "month": "Mar", "date": "3/23/2018 2:20:00 PM", "close": "385.75" }, { "weekid": 40, "symbol": "CN18", "label": "CN18-CZ18", "month": "Mar", "date": "3/30/2018 2:20:00 PM", "close": "396.25" }, { "weekid": 41, "symbol": "CN18", "label": "CN18-CZ18", "month": "Apr", "date": "4/6/2018 2:20:00 PM", "close": "397.0" }, { "weekid": 42, "symbol": "CN18", "label": "CN18-CZ18", "month": "Apr", "date": "4/13/2018 2:20:00 PM", "close": "394.5" }, { "weekid": 43, "symbol": "CN18", "label": "CN18-CZ18", "month": "Apr", "date": "4/20/2018 2:20:00 PM", "close": "385.5" }, { "weekid": 44, "symbol": "CN18", "label": "CN18-CZ18", "month": "Apr", "date": "4/27/2018 2:20:00 PM", "close": "398.5" }, { "weekid": 45, "symbol": "CN18", "label": "CN18-CZ18", "month": "May", "date": "5/4/2018 2:20:00 PM", "close": "406.25" }, { "weekid": 46, "symbol": "CN18", "label": "CN18-CZ18", "month": "May", "date": "5/11/2018 2:20:00 PM", "close": "396.5" }, { "weekid": 47, "symbol": "CN18", "label": "CN18-CZ18", "month": "May", "date": "5/18/2018 2:20:00 PM", "close": "402.5" }, { "weekid": 48, "symbol": "CN18", "label": "CN18-CZ18", "month": "May", "date": "5/25/2018 2:20:00 PM", "close": "406.0" }, { "weekid": 49, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jun", "date": "6/1/2018 2:20:00 PM", "close": "391.5" }, { "weekid": 50, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jun", "date": "6/8/2018 2:20:00 PM", "close": "377.75" }, { "weekid": 51, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jun", "date": "6/15/2018 2:20:00 PM", "close": "361.25" }, { "weekid": 52, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jun", "date": "6/22/2018 2:20:00 PM", "close": "357.25" }, { "weekid": 53, "symbol": "CN18", "label": "CN18-CZ18", "month": "Jun", "date": "6/29/2018 2:20:00 PM", "close": "350.25" }, { "weekid": 1, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jun", "date": "6/30/2017 2:20:00 PM", "close": "413.5" }, { "weekid": 2, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jul", "date": "7/7/2017 2:20:00 PM", "close": "420.5" }, { "weekid": 3, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jul", "date": "7/14/2017 2:20:00 PM", "close": "413.5" }, { "weekid": 4, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jul", "date": "7/21/2017 2:20:00 PM", "close": "419.25" }, { "weekid": 5, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jul", "date": "7/28/2017 2:20:00 PM", "close": "417.25" }, { "weekid": 6, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Aug", "date": "8/4/2017 2:20:00 PM", "close": "412.5" }, { "weekid": 7, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Aug", "date": "8/11/2017 2:20:00 PM", "close": "408.5" }, { "weekid": 8, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Aug", "date": "8/18/2017 2:20:00 PM", "close": "402.0" }, { "weekid": 9, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Aug", "date": "8/25/2017 2:20:00 PM", "close": "393.75" }, { "weekid": 10, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Sep", "date": "9/1/2017 2:20:00 PM", "close": "396.5" }, { "weekid": 11, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Sep", "date": "9/8/2017 2:20:00 PM", "close": "398.0" }, { "weekid": 12, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Sep", "date": "9/15/2017 2:20:00 PM", "close": "397.25" }, { "weekid": 13, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Sep", "date": "9/22/2017 2:20:00 PM", "close": "396.5" }, { "weekid": 14, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Sep", "date": "9/29/2017 2:20:00 PM", "close": "399.5" }, { "weekid": 15, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Oct", "date": "10/6/2017 2:20:00 PM", "close": "396.5" }, { "weekid": 16, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Oct", "date": "10/13/2017 2:20:00 PM", "close": "398.25" }, { "weekid": 17, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Oct", "date": "10/20/2017 2:20:00 PM", "close": "391.25" }, { "weekid": 18, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Oct", "date": "10/27/2017 2:20:00 PM", "close": "394.5" }, { "weekid": 19, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Nov", "date": "11/3/2017 2:20:00 PM", "close": "393.5" }, { "weekid": 20, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Nov", "date": "11/10/2017 2:20:00 PM", "close": "389.25" }, { "weekid": 21, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Nov", "date": "11/17/2017 2:20:00 PM", "close": "387.25" }, { "weekid": 22, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Nov", "date": "11/24/2017 2:20:00 PM", "close": "387.5" }, { "weekid": 23, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Dec", "date": "12/1/2017 2:20:00 PM", "close": "389.75" }, { "weekid": 24, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Dec", "date": "12/8/2017 2:20:00 PM", "close": "385.0" }, { "weekid": 25, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Dec", "date": "12/15/2017 2:20:00 PM", "close": "380.0" }, { "weekid": 26, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Dec", "date": "12/22/2017 2:20:00 PM", "close": "384.5" }, { "weekid": 27, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Dec", "date": "12/29/2017 2:20:00 PM", "close": "384.0" }, { "weekid": 28, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jan", "date": "1/5/2018 2:20:00 PM", "close": "384.5" }, { "weekid": 29, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jan", "date": "1/12/2018 2:20:00 PM", "close": "380.5" }, { "weekid": 30, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jan", "date": "1/19/2018 2:20:00 PM", "close": "385.75" }, { "weekid": 31, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jan", "date": "1/26/2018 2:20:00 PM", "close": "389.5" }, { "weekid": 32, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Feb", "date": "2/2/2018 2:20:00 PM", "close": "392.5" }, { "weekid": 33, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Feb", "date": "2/9/2018 2:20:00 PM", "close": "392.25" }, { "weekid": 34, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Feb", "date": "2/16/2018 2:20:00 PM", "close": "397.0" }, { "weekid": 35, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Feb", "date": "2/23/2018 2:20:00 PM", "close": "397.25" }, { "weekid": 36, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Mar", "date": "3/2/2018 2:20:00 PM", "close": "404.25" }, { "weekid": 37, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Mar", "date": "3/9/2018 2:20:00 PM", "close": "407.25" }, { "weekid": 38, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Mar", "date": "3/16/2018 2:20:00 PM", "close": "403.75" }, { "weekid": 39, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Mar", "date": "3/23/2018 2:20:00 PM", "close": "399.25" }, { "weekid": 40, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Mar", "date": "3/30/2018 2:20:00 PM", "close": "411.5" }, { "weekid": 41, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Apr", "date": "4/6/2018 2:20:00 PM", "close": "412.5" }, { "weekid": 42, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Apr", "date": "4/13/2018 2:20:00 PM", "close": "410.75" }, { "weekid": 43, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Apr", "date": "4/20/2018 2:20:00 PM", "close": "402.5" }, { "weekid": 44, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Apr", "date": "4/27/2018 2:20:00 PM", "close": "414.5" }, { "weekid": 45, "symbol": "CZ18", "label": "CN18-CZ18", "month": "May", "date": "5/4/2018 2:20:00 PM", "close": "421.0" }, { "weekid": 46, "symbol": "CZ18", "label": "CN18-CZ18", "month": "May", "date": "5/11/2018 2:20:00 PM", "close": "414.5" }, { "weekid": 47, "symbol": "CZ18", "label": "CN18-CZ18", "month": "May", "date": "5/18/2018 2:20:00 PM", "close": "420.25" }, { "weekid": 48, "symbol": "CZ18", "label": "CN18-CZ18", "month": "May", "date": "5/25/2018 2:20:00 PM", "close": "425.0" }, { "weekid": 49, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jun", "date": "6/1/2018 2:20:00 PM", "close": "411.75" }, { "weekid": 50, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jun", "date": "6/8/2018 2:20:00 PM", "close": "398.0" }, { "weekid": 51, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jun", "date": "6/15/2018 2:20:00 PM", "close": "382.75" }, { "weekid": 52, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jun", "date": "6/22/2018 2:20:00 PM", "close": "378.0" }, { "weekid": 53, "symbol": "CZ18", "label": "CN18-CZ18", "month": "Jun", "date": "6/29/2018 2:20:00 PM", "close": "371.25" }, { "weekid": 1, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jul", "date": "7/6/2018 2:20:00 PM", "close": "396.5" }, { "weekid": 2, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jul", "date": "7/13/2018 2:20:00 PM", "close": "379.25" }, { "weekid": 3, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jul", "date": "7/20/2018 2:20:00 PM", "close": "392.0" }, { "weekid": 4, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jul", "date": "7/27/2018 2:20:00 PM", "close": "397.75" }, { "weekid": 5, "symbol": "CN19", "label": "CN19-CZ19", "month": "Aug", "date": "8/3/2018 2:20:00 PM", "close": "407.0" }, { "weekid": 6, "symbol": "CN19", "label": "CN19-CZ19", "month": "Aug", "date": "8/10/2018 2:20:00 PM", "close": "396.0" }, { "weekid": 7, "symbol": "CN19", "label": "CN19-CZ19", "month": "Aug", "date": "8/17/2018 2:20:00 PM", "close": "403.5" }, { "weekid": 8, "symbol": "CN19", "label": "CN19-CZ19", "month": "Aug", "date": "8/24/2018 2:20:00 PM", "close": "387.75" }, { "weekid": 9, "symbol": "CN19", "label": "CN19-CZ19", "month": "Aug", "date": "8/31/2018 2:20:00 PM", "close": "390.5" }, { "weekid": 10, "symbol": "CN19", "label": "CN19-CZ19", "month": "Sep", "date": "9/7/2018 2:20:00 PM", "close": "392.75" }, { "weekid": 11, "symbol": "CN19", "label": "CN19-CZ19", "month": "Sep", "date": "9/14/2018 2:20:00 PM", "close": "378.25" }, { "weekid": 12, "symbol": "CN19", "label": "CN19-CZ19", "month": "Sep", "date": "9/21/2018 2:20:00 PM", "close": "383.25" }, { "weekid": 13, "symbol": "CN19", "label": "CN19-CZ19", "month": "Sep", "date": "9/28/2018 2:20:00 PM", "close": "381.25" }, { "weekid": 14, "symbol": "CN19", "label": "CN19-CZ19", "month": "Oct", "date": "10/5/2018 2:20:00 PM", "close": "392.25" }, { "weekid": 15, "symbol": "CN19", "label": "CN19-CZ19", "month": "Oct", "date": "10/12/2018 2:20:00 PM", "close": "397.75" }, { "weekid": 16, "symbol": "CN19", "label": "CN19-CZ19", "month": "Oct", "date": "10/19/2018 2:20:00 PM", "close": "392.75" }, { "weekid": 17, "symbol": "CN19", "label": "CN19-CZ19", "month": "Oct", "date": "10/26/2018 2:20:00 PM", "close": "393.75" }, { "weekid": 18, "symbol": "CN19", "label": "CN19-CZ19", "month": "Nov", "date": "11/2/2018 2:20:00 PM", "close": "397.0" }, { "weekid": 19, "symbol": "CN19", "label": "CN19-CZ19", "month": "Nov", "date": "11/9/2018 2:20:00 PM", "close": "396.0" }, { "weekid": 20, "symbol": "CN19", "label": "CN19-CZ19", "month": "Nov", "date": "11/16/2018 2:20:00 PM", "close": "390.0" }, { "weekid": 21, "symbol": "CN19", "label": "CN19-CZ19", "month": "Nov", "date": "11/23/2018 2:20:00 PM", "close": "385.5" }, { "weekid": 22, "symbol": "CN19", "label": "CN19-CZ19", "month": "Nov", "date": "11/30/2018 2:20:00 PM", "close": "391.5" }, { "weekid": 23, "symbol": "CN19", "label": "CN19-CZ19", "month": "Dec", "date": "12/7/2018 2:20:00 PM", "close": "399.25" }, { "weekid": 24, "symbol": "CN19", "label": "CN19-CZ19", "month": "Dec", "date": "12/14/2018 2:20:00 PM", "close": "398.75" }, { "weekid": 25, "symbol": "CN19", "label": "CN19-CZ19", "month": "Dec", "date": "12/21/2018 2:20:00 PM", "close": "393.5" }, { "weekid": 26, "symbol": "CN19", "label": "CN19-CZ19", "month": "Dec", "date": "12/28/2018 2:20:00 PM", "close": "390.5" }, { "weekid": 27, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jan", "date": "1/4/2019 2:20:00 PM", "close": "398.25" }, { "weekid": 28, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jan", "date": "1/11/2019 2:20:00 PM", "close": "394.25" }, { "weekid": 29, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jan", "date": "1/18/2019 2:20:00 PM", "close": "397.25" }, { "weekid": 30, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jan", "date": "1/25/2019 2:20:00 PM", "close": "396.5" }, { "weekid": 31, "symbol": "CN19", "label": "CN19-CZ19", "month": "Feb", "date": "2/1/2019 2:20:00 PM", "close": "394.75" }, { "weekid": 32, "symbol": "CN19", "label": "CN19-CZ19", "month": "Feb", "date": "2/8/2019 2:20:00 PM", "close": "390.0" }, { "weekid": 33, "symbol": "CN19", "label": "CN19-CZ19", "month": "Feb", "date": "2/15/2019 2:20:00 PM", "close": "390.5" }, { "weekid": 34, "symbol": "CN19", "label": "CN19-CZ19", "month": "Feb", "date": "2/22/2019 2:20:00 PM", "close": "392.5" }, { "weekid": 35, "symbol": "CN19", "label": "CN19-CZ19", "month": "Mar", "date": "3/1/2019 2:20:00 PM", "close": "381.5" }, { "weekid": 36, "symbol": "CN19", "label": "CN19-CZ19", "month": "Mar", "date": "3/8/2019 2:20:00 PM", "close": "373.5" }, { "weekid": 37, "symbol": "CN19", "label": "CN19-CZ19", "month": "Mar", "date": "3/15/2019 2:20:00 PM", "close": "382.25" }, { "weekid": 38, "symbol": "CN19", "label": "CN19-CZ19", "month": "Mar", "date": "3/22/2019 2:20:00 PM", "close": "387.5" }, { "weekid": 39, "symbol": "CN19", "label": "CN19-CZ19", "month": "Mar", "date": "3/29/2019 2:20:00 PM", "close": "366.25" }, { "weekid": 40, "symbol": "CN19", "label": "CN19-CZ19", "month": "Apr", "date": "4/5/2019 2:20:00 PM", "close": "371.0" }, { "weekid": 41, "symbol": "CN19", "label": "CN19-CZ19", "month": "Apr", "date": "4/12/2019 2:20:00 PM", "close": "369.5" }, { "weekid": 42, "symbol": "CN19", "label": "CN19-CZ19", "month": "Apr", "date": "4/19/2019 2:20:00 PM", "close": "367.25" }, { "weekid": 43, "symbol": "CN19", "label": "CN19-CZ19", "month": "Apr", "date": "4/26/2019 2:20:00 PM", "close": "361.25" }, { "weekid": 44, "symbol": "CN19", "label": "CN19-CZ19", "month": "May", "date": "5/3/2019 2:20:00 PM", "close": "370.75" }, { "weekid": 45, "symbol": "CN19", "label": "CN19-CZ19", "month": "May", "date": "5/10/2019 2:20:00 PM", "close": "351.75" }, { "weekid": 46, "symbol": "CN19", "label": "CN19-CZ19", "month": "May", "date": "5/17/2019 2:20:00 PM", "close": "383.25" }, { "weekid": 47, "symbol": "CN19", "label": "CN19-CZ19", "month": "May", "date": "5/24/2019 2:20:00 PM", "close": "404.25" }, { "weekid": 48, "symbol": "CN19", "label": "CN19-CZ19", "month": "May", "date": "5/31/2019 2:20:00 PM", "close": "427.0" }, { "weekid": 49, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jun", "date": "6/7/2019 2:20:00 PM", "close": "415.75" }, { "weekid": 50, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jun", "date": "6/14/2019 2:20:00 PM", "close": "453.0" }, { "weekid": 51, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jun", "date": "6/21/2019 2:20:00 PM", "close": "442.25" }, { "weekid": 52, "symbol": "CN19", "label": "CN19-CZ19", "month": "Jun", "date": "6/28/2019 2:20:00 PM", "close": "420.25" }, { "weekid": 1, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jul", "date": "7/6/2018 2:20:00 PM", "close": "399.0" }, { "weekid": 2, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jul", "date": "7/13/2018 2:20:00 PM", "close": "387.5" }, { "weekid": 3, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jul", "date": "7/20/2018 2:20:00 PM", "close": "396.25" }, { "weekid": 4, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jul", "date": "7/27/2018 2:20:00 PM", "close": "401.5" }, { "weekid": 5, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Aug", "date": "8/3/2018 2:20:00 PM", "close": "410.75" }, { "weekid": 6, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Aug", "date": "8/10/2018 2:20:00 PM", "close": "400.5" }, { "weekid": 7, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Aug", "date": "8/17/2018 2:20:00 PM", "close": "404.5" }, { "weekid": 8, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Aug", "date": "8/24/2018 2:20:00 PM", "close": "392.5" }, { "weekid": 9, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Aug", "date": "8/31/2018 2:20:00 PM", "close": "394.75" }, { "weekid": 10, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Sep", "date": "9/7/2018 2:20:00 PM", "close": "396.5" }, { "weekid": 11, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Sep", "date": "9/14/2018 2:20:00 PM", "close": "390.0" }, { "weekid": 12, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Sep", "date": "9/21/2018 2:20:00 PM", "close": "393.75" }, { "weekid": 13, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Sep", "date": "9/28/2018 2:20:00 PM", "close": "391.25" }, { "weekid": 14, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Oct", "date": "10/5/2018 2:20:00 PM", "close": "400.5" }, { "weekid": 15, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Oct", "date": "10/12/2018 2:20:00 PM", "close": "404.5" }, { "weekid": 16, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Oct", "date": "10/19/2018 2:20:00 PM", "close": "400.0" }, { "weekid": 17, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Oct", "date": "10/26/2018 2:20:00 PM", "close": "402.5" }, { "weekid": 18, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Nov", "date": "11/2/2018 2:20:00 PM", "close": "403.75" }, { "weekid": 19, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Nov", "date": "11/9/2018 2:20:00 PM", "close": "402.5" }, { "weekid": 20, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Nov", "date": "11/16/2018 2:20:00 PM", "close": "398.0" }, { "weekid": 21, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Nov", "date": "11/23/2018 2:20:00 PM", "close": "395.25" }, { "weekid": 22, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Nov", "date": "11/30/2018 2:20:00 PM", "close": "399.75" }, { "weekid": 23, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Dec", "date": "12/7/2018 2:20:00 PM", "close": "403.0" }, { "weekid": 24, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Dec", "date": "12/14/2018 2:20:00 PM", "close": "403.75" }, { "weekid": 25, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Dec", "date": "12/21/2018 2:20:00 PM", "close": "399.25" }, { "weekid": 26, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Dec", "date": "12/28/2018 2:20:00 PM", "close": "397.5" }, { "weekid": 27, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jan", "date": "1/4/2019 2:20:00 PM", "close": "404.0" }, { "weekid": 28, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jan", "date": "1/11/2019 2:20:00 PM", "close": "401.5" }, { "weekid": 29, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jan", "date": "1/18/2019 2:20:00 PM", "close": "403.75" }, { "weekid": 30, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jan", "date": "1/25/2019 2:20:00 PM", "close": "403.25" }, { "weekid": 31, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Feb", "date": "2/1/2019 2:20:00 PM", "close": "402.25" }, { "weekid": 32, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Feb", "date": "2/8/2019 2:20:00 PM", "close": "399.25" }, { "weekid": 33, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Feb", "date": "2/15/2019 2:20:00 PM", "close": "399.25" }, { "weekid": 34, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Feb", "date": "2/22/2019 2:20:00 PM", "close": "401.75" }, { "weekid": 35, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Mar", "date": "3/1/2019 2:20:00 PM", "close": "394.25" }, { "weekid": 36, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Mar", "date": "3/8/2019 2:20:00 PM", "close": "388.5" }, { "weekid": 37, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Mar", "date": "3/15/2019 2:20:00 PM", "close": "396.0" }, { "weekid": 38, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Mar", "date": "3/22/2019 2:20:00 PM", "close": "400.0" }, { "weekid": 39, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Mar", "date": "3/29/2019 2:20:00 PM", "close": "384.75" }, { "weekid": 40, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Apr", "date": "4/5/2019 2:20:00 PM", "close": "390.0" }, { "weekid": 41, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Apr", "date": "4/12/2019 2:20:00 PM", "close": "389.0" }, { "weekid": 42, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Apr", "date": "4/19/2019 2:20:00 PM", "close": "386.25" }, { "weekid": 43, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Apr", "date": "4/26/2019 2:20:00 PM", "close": "380.75" }, { "weekid": 44, "symbol": "CZ19", "label": "CN19-CZ19", "month": "May", "date": "5/3/2019 2:20:00 PM", "close": "387.75" }, { "weekid": 45, "symbol": "CZ19", "label": "CN19-CZ19", "month": "May", "date": "5/10/2019 2:20:00 PM", "close": "372.0" }, { "weekid": 46, "symbol": "CZ19", "label": "CN19-CZ19", "month": "May", "date": "5/17/2019 2:20:00 PM", "close": "398.25" }, { "weekid": 47, "symbol": "CZ19", "label": "CN19-CZ19", "month": "May", "date": "5/24/2019 2:20:00 PM", "close": "419.75" }, { "weekid": 48, "symbol": "CZ19", "label": "CN19-CZ19", "month": "May", "date": "5/31/2019 2:20:00 PM", "close": "443.75" }, { "weekid": 49, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jun", "date": "6/7/2019 2:20:00 PM", "close": "433.75" }, { "weekid": 50, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jun", "date": "6/14/2019 2:20:00 PM", "close": "463.5" }, { "weekid": 51, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jun", "date": "6/21/2019 2:20:00 PM", "close": "453.5" }, { "weekid": 52, "symbol": "CZ19", "label": "CN19-CZ19", "month": "Jun", "date": "6/28/2019 2:20:00 PM", "close": "431.5" }, { "weekid": 1, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jul", "date": "7/5/2019 2:20:00 PM", "close": "455.75" }, { "weekid": 2, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jul", "date": "7/12/2019 2:20:00 PM", "close": "467.75" }, { "weekid": 3, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jul", "date": "7/19/2019 2:20:00 PM", "close": "451.25" }, { "weekid": 4, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jul", "date": "7/26/2019 2:20:00 PM", "close": "442.25" }, { "weekid": 5, "symbol": "CN20", "label": "CN20-CZ20", "month": "Aug", "date": "8/2/2019 2:20:00 PM", "close": "430.75" }, { "weekid": 6, "symbol": "CN20", "label": "CN20-CZ20", "month": "Aug", "date": "8/9/2019 2:20:00 PM", "close": "437.5" }, { "weekid": 7, "symbol": "CN20", "label": "CN20-CZ20", "month": "Aug", "date": "8/16/2019 2:20:00 PM", "close": "405.75" }, { "weekid": 8, "symbol": "CN20", "label": "CN20-CZ20", "month": "Aug", "date": "8/23/2019 2:20:00 PM", "close": "395.25" }, { "weekid": 9, "symbol": "CN20", "label": "CN20-CZ20", "month": "Aug", "date": "8/30/2019 2:20:00 PM", "close": "397.0" }, { "weekid": 10, "symbol": "CN20", "label": "CN20-CZ20", "month": "Sep", "date": "9/6/2019 2:20:00 PM", "close": "384.75" }, { "weekid": 11, "symbol": "CN20", "label": "CN20-CZ20", "month": "Sep", "date": "9/13/2019 2:20:00 PM", "close": "397.0" }, { "weekid": 12, "symbol": "CN20", "label": "CN20-CZ20", "month": "Sep", "date": "9/20/2019 2:20:00 PM", "close": "395.25" }, { "weekid": 13, "symbol": "CN20", "label": "CN20-CZ20", "month": "Sep", "date": "9/27/2019 2:20:00 PM", "close": "396.5" }, { "weekid": 14, "symbol": "CN20", "label": "CN20-CZ20", "month": "Oct", "date": "10/4/2019 2:20:00 PM", "close": "405.75" }, { "weekid": 15, "symbol": "CN20", "label": "CN20-CZ20", "month": "Oct", "date": "10/11/2019 2:20:00 PM", "close": "416.5" }, { "weekid": 16, "symbol": "CN20", "label": "CN20-CZ20", "month": "Oct", "date": "10/18/2019 2:20:00 PM", "close": "415.25" }, { "weekid": 17, "symbol": "CN20", "label": "CN20-CZ20", "month": "Oct", "date": "10/25/2019 2:20:00 PM", "close": "409.75" }, { "weekid": 18, "symbol": "CN20", "label": "CN20-CZ20", "month": "Nov", "date": "11/1/2019 2:20:00 PM", "close": "410.0" }, { "weekid": 19, "symbol": "CN20", "label": "CN20-CZ20", "month": "Nov", "date": "11/8/2019 2:20:00 PM", "close": "399.75" }, { "weekid": 20, "symbol": "CN20", "label": "CN20-CZ20", "month": "Nov", "date": "11/15/2019 2:20:00 PM", "close": "392.5" }, { "weekid": 21, "symbol": "CN20", "label": "CN20-CZ20", "month": "Nov", "date": "11/22/2019 2:20:00 PM", "close": "388.75" }, { "weekid": 22, "symbol": "CN20", "label": "CN20-CZ20", "month": "Nov", "date": "11/29/2019 2:20:00 PM", "close": "390.25" }, { "weekid": 23, "symbol": "CN20", "label": "CN20-CZ20", "month": "Dec", "date": "12/6/2019 2:20:00 PM", "close": "386.75" }, { "weekid": 24, "symbol": "CN20", "label": "CN20-CZ20", "month": "Dec", "date": "12/13/2019 2:20:00 PM", "close": "393.75" }, { "weekid": 25, "symbol": "CN20", "label": "CN20-CZ20", "month": "Dec", "date": "12/20/2019 2:20:00 PM", "close": "399.5" }, { "weekid": 26, "symbol": "CN20", "label": "CN20-CZ20", "month": "Dec", "date": "12/27/2019 2:20:00 PM", "close": "402.75" }, { "weekid": 27, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jan", "date": "1/3/2020 2:20:00 PM", "close": "399.25" }, { "weekid": 28, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jan", "date": "1/10/2020 2:20:00 PM", "close": "399.5" }, { "weekid": 29, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jan", "date": "1/17/2020 2:20:00 PM", "close": "401.0" }, { "weekid": 30, "symbol": "CN20", "label": "CN20-CZ20", "month": "Jan", "date": "1/24/2020 2:20:00 PM", "close": "397.75" }, { "weekid": 1, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jul", "date": "7/5/2019 2:20:00 PM", "close": "418.25" }, { "weekid": 2, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jul", "date": "7/12/2019 2:20:00 PM", "close": "422.75" }, { "weekid": 3, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jul", "date": "7/19/2019 2:20:00 PM", "close": "418.5" }, { "weekid": 4, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jul", "date": "7/26/2019 2:20:00 PM", "close": "416.0" }, { "weekid": 5, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Aug", "date": "8/2/2019 2:20:00 PM", "close": "412.25" }, { "weekid": 6, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Aug", "date": "8/9/2019 2:20:00 PM", "close": "415.0" }, { "weekid": 7, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Aug", "date": "8/16/2019 2:20:00 PM", "close": "408.5" }, { "weekid": 8, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Aug", "date": "8/23/2019 2:20:00 PM", "close": "404.25" }, { "weekid": 9, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Aug", "date": "8/30/2019 2:20:00 PM", "close": "404.25" }, { "weekid": 10, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Sep", "date": "9/6/2019 2:20:00 PM", "close": "396.75" }, { "weekid": 11, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Sep", "date": "9/13/2019 2:20:00 PM", "close": "406.75" }, { "weekid": 12, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Sep", "date": "9/20/2019 2:20:00 PM", "close": "402.0" }, { "weekid": 13, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Sep", "date": "9/27/2019 2:20:00 PM", "close": "403.0" }, { "weekid": 14, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Oct", "date": "10/4/2019 2:20:00 PM", "close": "404.25" }, { "weekid": 15, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Oct", "date": "10/11/2019 2:20:00 PM", "close": "410.0" }, { "weekid": 16, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Oct", "date": "10/18/2019 2:20:00 PM", "close": "410.25" }, { "weekid": 17, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Oct", "date": "10/25/2019 2:20:00 PM", "close": "407.75" }, { "weekid": 18, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Nov", "date": "11/1/2019 2:20:00 PM", "close": "405.75" }, { "weekid": 19, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Nov", "date": "11/8/2019 2:20:00 PM", "close": "401.0" }, { "weekid": 20, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Nov", "date": "11/15/2019 2:20:00 PM", "close": "395.75" }, { "weekid": 21, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Nov", "date": "11/22/2019 2:20:00 PM", "close": "392.5" }, { "weekid": 22, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Nov", "date": "11/29/2019 2:20:00 PM", "close": "391.0" }, { "weekid": 23, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Dec", "date": "12/6/2019 2:20:00 PM", "close": "390.25" }, { "weekid": 24, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Dec", "date": "12/13/2019 2:20:00 PM", "close": "395.25" }, { "weekid": 25, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Dec", "date": "12/20/2019 2:20:00 PM", "close": "401.75" }, { "weekid": 26, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Dec", "date": "12/27/2019 2:20:00 PM", "close": "403.5" }, { "weekid": 27, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jan", "date": "1/3/2020 2:20:00 PM", "close": "400.75" }, { "weekid": 28, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jan", "date": "1/10/2020 2:20:00 PM", "close": "402.75" }, { "weekid": 29, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jan", "date": "1/17/2020 2:20:00 PM", "close": "402.75" }, { "weekid": 30, "symbol": "CZ20", "label": "CN20-CZ20", "month": "Jan", "date": "1/24/2020 2:20:00 PM", "close": "398.25" }]';
+
+            // individual test data
+            //var argsIndividual = '[{ "weekid": 1, "symbol": "CN17", "label": "CN17", "month": "Jul", "date": "7/1/2016 2:20:00 PM", "close": "385.75", "high": "409.75", "low": "382.5" }, { "weekid": 2, "symbol": "CN17", "label": "CN17", "month": "Jul", "date": "7/8/2016 2:20:00 PM", "close": "380.5", "high": "381.5", "low": "366.5" }, { "weekid": 3, "symbol": "CN17", "label": "CN17", "month": "Jul", "date": "7/15/2016 2:20:00 PM", "close": "374.25", "high": "395.75", "low": "367.75" }, { "weekid": 4, "symbol": "CN17", "label": "CN17", "month": "Jul", "date": "7/22/2016 2:20:00 PM", "close": "362.5", "high": "380.5", "low": "354.5" }, { "weekid": 5, "symbol": "CN17", "label": "CN17", "month": "Jul", "date": "7/29/2016 2:20:00 PM", "close": "362.75", "high": "365.25", "low": "355.75" }, { "weekid": 1, "symbol": "CN18", "label": "CN18", "month": "Jul", "date": "7/1/2016 2:20:00 PM", "close": "406.25", "high": "408.75", "low": "401.0" }, { "weekid": 2, "symbol": "CN18", "label": "CN18", "month": "Jul", "date": "7/8/2016 2:20:00 PM", "close": "404.25", "high": "404.25", "low": "393.75" }, { "weekid": 3, "symbol": "CN18", "label": "CN18", "month": "Jul", "date": "7/15/2016 2:20:00 PM", "close": "399.75", "high": "408.75", "low": "395.0" }, { "weekid": 4, "symbol": "CN18", "label": "CN18", "month": "Jul", "date": "7/22/2016 2:20:00 PM", "close": "391.5", "high": "404.75", "low": "387.0" }, { "weekid": 5, "symbol": "CN18", "label": "CN18", "month": "Jul", "date": "7/29/2016 2:20:00 PM", "close": "390.5", "high": "391.25", "low": "386.0" }]';
+            */
+
+            
+        </script>
+    </div>
+</body>
+</html>
+
